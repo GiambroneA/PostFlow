@@ -2,7 +2,7 @@ namespace PostFlow.Api.Features.MediaAssets.Models;
 
 public class MediaAsset
 {
-    public Guid Id { get; set; }
+    public string ? Id  { get; set; }
 
     public string FileName { get; set; } = string.Empty;
 

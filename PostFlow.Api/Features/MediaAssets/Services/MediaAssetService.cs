@@ -1,13 +1,19 @@
 using Microsoft.AspNetCore.Http;
 using PostFlow.Api.Features.MediaAssets.Contracts;
 using PostFlow.Api.Features.MediaAssets.Models;
+using Raven.Client.Documents;
+using Raven.Client.Documents.Linq;
 
 namespace PostFlow.Api.Features.MediaAssets.Services;
 
 public class MediaAssetService : IMediaAssetService
 {
-    private static readonly List<MediaAsset> MediaAssets = [];
+    private readonly IDocumentStore _store ;
 
+    public MediaAssetService(IDocumentStore store)
+    {
+        _store = store;
+    }
     public async Task<MediaAssetResponse> UploadAsync(IFormFile file)
     {
         if (file.Length == 0)
@@ -15,9 +21,9 @@ public class MediaAssetService : IMediaAssetService
             throw new ArgumentException("Uploaded file cannot be empty.");
         }
 
+
         var mediaAsset = new MediaAsset
         {
-            Id = Guid.NewGuid(),
             FileName = file.FileName,
             ContentType = file.ContentType,
             FileSizeBytes = file.Length,
@@ -26,37 +32,46 @@ public class MediaAssetService : IMediaAssetService
             Status = MediaAssetStatus.Uploaded
         };
 
-        MediaAssets.Add(mediaAsset);
+        using var session = _store.OpenAsyncSession();
 
-        return await Task.FromResult(ToResponse(mediaAsset));
+        await session.StoreAsync(mediaAsset);
+        await session.SaveChangesAsync();
+
+        return ToResponse(mediaAsset);
+
     }
 
     public async Task<List<MediaAssetResponse>> GetAllAsync()
     {
-        var responses = MediaAssets
-            .Select(ToResponse)
-            .ToList();
+        using var session = _store.OpenAsyncSession();
 
-        return await Task.FromResult(responses);
+        var mediaAssets = await session
+        .Query<MediaAsset>()
+        .ToListAsync();
+
+        return mediaAssets
+        .Select(ToResponse)
+        .ToList();
     }
 
-    public async Task<MediaAssetResponse?> GetByIdAsync(Guid id)
+    public async Task<MediaAssetResponse?> GetByIdAsync(string id)
     {
-        var mediaAsset = MediaAssets.FirstOrDefault(asset => asset.Id == id);
+        using var session = _store.OpenAsyncSession();
+
+        var mediaAsset = await session.LoadAsync<MediaAsset>(id);
 
         if (mediaAsset is null)
         {
             return null;
         }
 
-        return await Task.FromResult(ToResponse(mediaAsset));
+        return ToResponse(mediaAsset);
     }
 
     private static MediaAssetResponse ToResponse(MediaAsset mediaAsset)
     {
         return new MediaAssetResponse
         {
-            Id = mediaAsset.Id,
             FileName = mediaAsset.FileName,
             ContentType = mediaAsset.ContentType,
             FileSizeBytes = mediaAsset.FileSizeBytes,

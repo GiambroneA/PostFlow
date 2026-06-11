@@ -9,5 +9,5 @@ public interface IMediaAssetService
 
     Task<List<MediaAssetResponse>> GetAllAsync();
 
-    Task<MediaAssetResponse?> GetByIdAsync(Guid id);
+    Task<MediaAssetResponse?> GetByIdAsync(string id);
 }
